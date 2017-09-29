@@ -56,12 +56,8 @@ typedef struct {
   void (*check_peer)(grpc_exec_ctx *exec_ctx, grpc_security_connector *sc,
                      tsi_peer peer, grpc_auth_context **auth_context,
                      grpc_closure *on_peer_checked);
+  int (*cmp)(grpc_security_connector *sc, grpc_security_connector *other);
 } grpc_security_connector_vtable;
-
-typedef struct grpc_security_connector_handshake_list {
-  void *handshake;
-  struct grpc_security_connector_handshake_list *next;
-} grpc_security_connector_handshake_list;
 
 struct grpc_security_connector {
   const grpc_security_connector_vtable *vtable;
@@ -100,6 +96,10 @@ void grpc_security_connector_check_peer(grpc_exec_ctx *exec_ctx,
                                         grpc_auth_context **auth_context,
                                         grpc_closure *on_peer_checked);
 
+/* Compares two security connectors. */
+int grpc_security_connector_cmp(grpc_security_connector *sc,
+                                grpc_security_connector *other);
+
 /* Util to encapsulate the connector in a channel arg. */
 grpc_arg grpc_security_connector_to_arg(grpc_security_connector *sc);
 
@@ -112,7 +112,7 @@ grpc_security_connector *grpc_security_connector_find_in_args(
 
 /* --- channel_security_connector object. ---
 
-    A channel security connector object represents away to configure the
+    A channel security connector object represents a way to configure the
     underlying transport security mechanism on the client side.  */
 
 typedef struct grpc_channel_security_connector grpc_channel_security_connector;
@@ -133,6 +133,10 @@ struct grpc_channel_security_connector {
                           grpc_channel_security_connector *sc,
                           grpc_handshake_manager *handshake_mgr);
 };
+
+/// A helper function for use in grpc_security_connector_cmp() implementations.
+int grpc_channel_security_connector_cmp(grpc_channel_security_connector *sc1,
+                                        grpc_channel_security_connector *sc2);
 
 /// Checks that the host that will be set for a call is acceptable.
 /// Returns true if completed synchronously, in which case \a error will
@@ -157,7 +161,7 @@ void grpc_channel_security_connector_add_handshakers(
 
 /* --- server_security_connector object. ---
 
-    A server security connector object represents away to configure the
+    A server security connector object represents a way to configure the
     underlying transport security mechanism on the server side.  */
 
 typedef struct grpc_server_security_connector grpc_server_security_connector;
@@ -168,6 +172,10 @@ struct grpc_server_security_connector {
                           grpc_server_security_connector *sc,
                           grpc_handshake_manager *handshake_mgr);
 };
+
+/// A helper function for use in grpc_security_connector_cmp() implementations.
+int grpc_server_security_connector_cmp(grpc_server_security_connector *sc1,
+                                       grpc_server_security_connector *sc2);
 
 void grpc_server_security_connector_add_handshakers(
     grpc_exec_ctx *exec_ctx, grpc_server_security_connector *sc,
