@@ -146,9 +146,7 @@ int grpc_security_connector_cmp(grpc_security_connector *sc,
 
 int grpc_channel_security_connector_cmp(grpc_channel_security_connector *sc1,
                                         grpc_channel_security_connector *sc2) {
-  int c = GPR_ICMP(sc1->channel_creds, sc2->channel_creds);
-  if (c != 0) return c;
-  c = GPR_ICMP(sc1->request_metadata_creds, sc2->request_metadata_creds);
+  int c = GPR_ICMP(sc1->request_metadata_creds, sc2->request_metadata_creds);
   if (c != 0) return c;
   c = GPR_ICMP((void *)sc1->check_call_host, (void *)sc2->check_call_host);
   if (c != 0) return c;
@@ -160,8 +158,6 @@ int grpc_channel_security_connector_cmp(grpc_channel_security_connector *sc1,
 
 int grpc_server_security_connector_cmp(grpc_server_security_connector *sc1,
                                        grpc_server_security_connector *sc2) {
-  int c = GPR_ICMP(sc1->server_creds, sc2->server_creds);
-  if (c != 0) return c;
   return GPR_ICMP((void *)sc1->add_handshakers, (void *)sc2->add_handshakers);
 }
 
@@ -512,6 +508,7 @@ grpc_server_security_connector *grpc_fake_server_security_connector_create(
 
 typedef struct {
   grpc_channel_security_connector base;
+  grpc_channel_credentials *channel_creds;
   tsi_ssl_client_handshaker_factory *client_handshaker_factory;
   char *target_name;
   char *overridden_target_name;
@@ -519,6 +516,7 @@ typedef struct {
 
 typedef struct {
   grpc_server_security_connector base;
+  grpc_server_credentials *server_creds;
   tsi_ssl_server_handshaker_factory *server_handshaker_factory;
 } grpc_ssl_server_security_connector;
 
@@ -526,8 +524,8 @@ static void ssl_channel_destroy(grpc_exec_ctx *exec_ctx,
                                 grpc_security_connector *sc) {
   grpc_ssl_channel_security_connector *c =
       (grpc_ssl_channel_security_connector *)sc;
-  grpc_channel_credentials_unref(exec_ctx, c->base.channel_creds);
   grpc_call_credentials_unref(exec_ctx, c->base.request_metadata_creds);
+  grpc_channel_credentials_unref(exec_ctx, c->channel_creds);
   tsi_ssl_client_handshaker_factory_unref(c->client_handshaker_factory);
   c->client_handshaker_factory = NULL;
   if (c->target_name != NULL) gpr_free(c->target_name);
@@ -539,8 +537,8 @@ static void ssl_server_destroy(grpc_exec_ctx *exec_ctx,
                                grpc_security_connector *sc) {
   grpc_ssl_server_security_connector *c =
       (grpc_ssl_server_security_connector *)sc;
-  grpc_server_credentials_unref(exec_ctx, c->base.server_creds);
   tsi_ssl_server_handshaker_factory_unref(c->server_handshaker_factory);
+  grpc_server_credentials_unref(exec_ctx, c->server_creds);
   c->server_handshaker_factory = NULL;
   gpr_free(sc);
 }
@@ -704,6 +702,8 @@ static int ssl_channel_cmp(grpc_security_connector *sc1,
       (grpc_ssl_channel_security_connector *)sc2;
   int c = grpc_channel_security_connector_cmp(&c1->base, &c2->base);
   if (c != 0) return c;
+  c = GPR_ICMP(c1->channel_creds, c2->channel_creds);
+  if (c != 0) return c;
   c = strcmp(c1->target_name, c2->target_name);
   if (c != 0) return c;
   return strcmp(c1->overridden_target_name, c2->overridden_target_name);
@@ -711,9 +711,13 @@ static int ssl_channel_cmp(grpc_security_connector *sc1,
 
 static int ssl_server_cmp(grpc_security_connector *sc1,
                           grpc_security_connector *sc2) {
-  return grpc_server_security_connector_cmp(
-      (grpc_server_security_connector *)sc1,
-      (grpc_server_security_connector *)sc2);
+  grpc_ssl_server_security_connector *c1 =
+      (grpc_ssl_server_security_connector *)sc1;
+  grpc_ssl_server_security_connector *c2 =
+      (grpc_ssl_server_security_connector *)sc2;
+  int c = grpc_server_security_connector_cmp(&c1->base, &c2->base);
+  if (c != 0) return c;
+  return GPR_ICMP(c1->server_creds, c2->server_creds);
 }
 
 static void add_shallow_auth_property_to_peer(tsi_peer *peer,
@@ -916,9 +920,9 @@ grpc_security_status grpc_ssl_channel_security_connector_create(
   gpr_ref_init(&c->base.base.refcount, 1);
   c->base.base.vtable = &ssl_channel_vtable;
   c->base.base.url_scheme = GRPC_SSL_URL_SCHEME;
-  c->base.channel_creds = grpc_channel_credentials_ref(channel_creds);
   c->base.request_metadata_creds =
       grpc_call_credentials_ref(request_metadata_creds);
+  c->channel_creds = grpc_channel_credentials_ref(channel_creds);
   c->base.check_call_host = ssl_channel_check_call_host;
   c->base.cancel_check_call_host = ssl_channel_cancel_check_call_host;
   c->base.add_handshakers = ssl_channel_add_handshakers;
@@ -974,7 +978,7 @@ grpc_security_status grpc_ssl_server_security_connector_create(
   gpr_ref_init(&c->base.base.refcount, 1);
   c->base.base.url_scheme = GRPC_SSL_URL_SCHEME;
   c->base.base.vtable = &ssl_server_vtable;
-  c->base.server_creds = grpc_server_credentials_ref(server_creds);
+  c->server_creds = grpc_server_credentials_ref(server_creds);
   result = tsi_create_ssl_server_handshaker_factory_ex(
       config->pem_key_cert_pairs, config->num_key_cert_pairs,
       config->pem_root_certs, get_tsi_client_certificate_request_type(
