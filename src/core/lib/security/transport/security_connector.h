@@ -123,6 +123,7 @@ typedef struct grpc_channel_security_connector grpc_channel_security_connector;
 
 struct grpc_channel_security_connector {
   grpc_security_connector base;
+  grpc_channel_credentials *channel_creds;
   grpc_call_credentials *request_metadata_creds;
   bool (*check_call_host)(grpc_exec_ctx *exec_ctx,
                           grpc_channel_security_connector *sc, const char *host,
@@ -172,6 +173,7 @@ typedef struct grpc_server_security_connector grpc_server_security_connector;
 
 struct grpc_server_security_connector {
   grpc_security_connector base;
+  grpc_server_credentials *server_creds;
   void (*add_handshakers)(grpc_exec_ctx *exec_ctx,
                           grpc_server_security_connector *sc,
                           grpc_handshake_manager *handshake_mgr);
