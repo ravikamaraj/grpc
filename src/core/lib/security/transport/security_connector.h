@@ -192,13 +192,14 @@ void grpc_server_security_connector_add_handshakers(
 /* For TESTING ONLY!
    Creates a fake connector that emulates real channel security.  */
 grpc_channel_security_connector *grpc_fake_channel_security_connector_create(
+    grpc_channel_credentials *channel_creds,
     grpc_call_credentials *request_metadata_creds, const char *target,
     const grpc_channel_args *args);
 
 /* For TESTING ONLY!
    Creates a fake connector that emulates real server security.  */
 grpc_server_security_connector *grpc_fake_server_security_connector_create(
-    void);
+    grpc_server_credentials *server_creds);
 
 /* Config for ssl clients. */
 

@@ -146,6 +146,8 @@ int grpc_security_connector_cmp(grpc_security_connector *sc,
 
 int grpc_channel_security_connector_cmp(grpc_channel_security_connector *sc1,
                                         grpc_channel_security_connector *sc2) {
+  GPR_ASSERT(sc1->channel_creds != NULL);
+  GPR_ASSERT(sc2->channel_creds != NULL);
   int c = GPR_ICMP(sc1->channel_creds, sc2->channel_creds);
   if (c != 0) return c;
   c = GPR_ICMP(sc1->request_metadata_creds, sc2->request_metadata_creds);
@@ -160,6 +162,8 @@ int grpc_channel_security_connector_cmp(grpc_channel_security_connector *sc1,
 
 int grpc_server_security_connector_cmp(grpc_server_security_connector *sc1,
                                        grpc_server_security_connector *sc2) {
+  GPR_ASSERT(sc1->server_creds != NULL);
+  GPR_ASSERT(sc2->server_creds != NULL);
   int c = GPR_ICMP(sc1->server_creds, sc2->server_creds);
   if (c != 0) return c;
   return GPR_ICMP((void *)sc1->add_handshakers, (void *)sc2->add_handshakers);
@@ -481,6 +485,7 @@ static grpc_security_connector_vtable fake_server_vtable = {
     fake_server_destroy, fake_server_check_peer, fake_server_cmp};
 
 grpc_channel_security_connector *grpc_fake_channel_security_connector_create(
+    grpc_channel_credentials *channel_creds,
     grpc_call_credentials *request_metadata_creds, const char *target,
     const grpc_channel_args *args) {
   grpc_fake_channel_security_connector *c =
@@ -488,6 +493,7 @@ grpc_channel_security_connector *grpc_fake_channel_security_connector_create(
   gpr_ref_init(&c->base.base.refcount, 1);
   c->base.base.url_scheme = GRPC_FAKE_SECURITY_URL_SCHEME;
   c->base.base.vtable = &fake_channel_vtable;
+  c->base.channel_creds = channel_creds;
   c->base.request_metadata_creds =
       grpc_call_credentials_ref(request_metadata_creds);
   c->base.check_call_host = fake_channel_check_call_host;
@@ -501,13 +507,14 @@ grpc_channel_security_connector *grpc_fake_channel_security_connector_create(
 }
 
 grpc_server_security_connector *grpc_fake_server_security_connector_create(
-    void) {
+    grpc_server_credentials *server_creds) {
   grpc_server_security_connector *c =
       (grpc_server_security_connector *)gpr_zalloc(
           sizeof(grpc_server_security_connector));
   gpr_ref_init(&c->base.refcount, 1);
   c->base.vtable = &fake_server_vtable;
   c->base.url_scheme = GRPC_FAKE_SECURITY_URL_SCHEME;
+  c->server_creds = server_creds;
   c->add_handshakers = fake_server_add_handshakers;
   return c;
 }

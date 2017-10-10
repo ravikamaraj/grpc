@@ -132,6 +132,10 @@ static grpc_security_status httpcli_ssl_channel_security_connector_create(
     *sc = NULL;
     return GRPC_SECURITY_ERROR;
   }
+  // We don't actually need a channel credentials object in this case,
+  // but we set it to a non-NULL address so that we don't trigger
+  // assertions in grpc_channel_security_connector_cmp().
+  c->base.channel_creds = (grpc_channel_credentials *)1;
   c->base.add_handshakers = httpcli_ssl_add_handshakers;
   *sc = &c->base;
   return GRPC_SECURITY_OK;
