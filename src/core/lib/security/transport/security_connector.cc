@@ -419,7 +419,11 @@ static int fake_channel_cmp(grpc_security_connector *sc1,
   if (c != 0) return c;
   c = strcmp(c1->target, c2->target);
   if (c != 0) return c;
-  c = strcmp(c1->expected_targets, c2->expected_targets);
+  if (c1->expected_targets == NULL || c2->expected_targets == NULL) {
+    c = GPR_ICMP(c1->expected_targets, c2->expected_targets);
+  } else {
+    c = strcmp(c1->expected_targets, c2->expected_targets);
+  }
   if (c != 0) return c;
   return GPR_ICMP(c1->is_lb_channel, c2->is_lb_channel);
 }
